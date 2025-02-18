@@ -1,0 +1,14 @@
+# Ignore .terraform directory (Terraform state, providers, etc.)
+.terraform/
+
+#echo ".terraform/" >> .gitignore
+
+# Ignore Terraform state files
+*.tfstate
+*.tfstate.*
+
+# Ignore crash log files
+crash.log
+
+# Ignore backup files
+*.bak
