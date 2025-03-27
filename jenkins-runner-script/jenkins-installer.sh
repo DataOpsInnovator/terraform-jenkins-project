@@ -23,5 +23,10 @@ sudo apt-get update
 sudo systemctl start jenkins
 sudo systemctl enable jenkins
 
-
+sleep 30
+echo "Waiting for 30 seconds before installing the Terraform..."
+wget https://releases.hashicorp.com/terraform/1.6.5/terraform_1.6.5_linux_386.zip
+yes | sudo apt-get install unzip
+unzip 'terraform*.zip'
+sudo mv terraform /usr/local/bin/
 
