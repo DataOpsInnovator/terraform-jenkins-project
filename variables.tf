@@ -38,7 +38,9 @@ variable "ec2_ami_id" {
   description = "DevOps Project 1 AMI Id for EC2 instance"
 }
 
+/*
 variable "user_data_install_jenkins" {
   description = "User data script to install Jenkins"
   type        = string
 }
+*/

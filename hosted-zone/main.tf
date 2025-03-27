@@ -3,7 +3,7 @@ variable "aws_lb_dns_name" {}
 variable "aws_lb_zone_id" {}
 
 data "aws_route53_zone" "shopsmartlytoday_com" {
-  name         = "shopsmartlytoday.com."
+  name         = "shopsmartlytoday.com"
   private_zone = false
 }
 
