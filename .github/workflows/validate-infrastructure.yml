@@ -1,0 +1,31 @@
+name: Validate Terraform configuration and installer
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-terraform-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Check installer shell syntax
+        run: bash -n jenkins-runner-script/jenkins-installer.sh
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.5
+      - name: Initialize without remote backend
+        run: terraform init -backend=false -input=false
+      - name: Validate Terraform configuration
+        run: terraform validate

@@ -1,32 +1,61 @@
-#!/bin/bash
-sudo apt-get update 
-yes | sudo apt install openjdk-17-jdk-headless
+#!/usr/bin/env bash
+set -euo pipefail
 
-echo "Waiting for 30 seconds before installing the jenkins package..."
-sleep 30
+# Supports Debian/Ubuntu hosts. Run as root or with sudo access.
+run_as_root() {
+  if [[ "${EUID}" -eq 0 ]]; then
+    "$@"
+  else
+    sudo "$@"
+  fi
+}
 
-sudo wget -O /usr/share/keyrings/jenkins-keyring.asc \
-  https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
-echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc]" \
-  https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
-  /etc/apt/sources.list.d/jenkins.list > /dev/null
+TERRAFORM_VERSION="${TERRAFORM_VERSION:-1.6.5}"
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
 
-sudo apt-get update
-yes | sudo apt-get install jenkins
-sleep 30 
+case "$(uname -m)" in
+  x86_64)
+    TERRAFORM_ARCH="amd64"
+    ;;
+  aarch64|arm64)
+    TERRAFORM_ARCH="arm64"
+    ;;
+  *)
+    echo "Unsupported CPU architecture: $(uname -m)" >&2
+    exit 1
+    ;;
+esac
 
-sudo chown -R jenkins:jenkins /var/lib/jenkins
-sudo chmod -R 755 /var/lib/jenkins
+run_as_root apt-get update
+run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y \
+  ca-certificates curl gnupg openjdk-17-jre-headless unzip
 
-sudo apt-get update
+# Add the official Jenkins stable repository using its signing key.
+run_as_root install -d -m 0755 /etc/apt/keyrings
+run_as_root curl -fsSL \
+  https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key \
+  -o /etc/apt/keyrings/jenkins-keyring.asc
+printf '%s\n' \
+  'deb [signed-by=/etc/apt/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/' \
+  | run_as_root tee /etc/apt/sources.list.d/jenkins.list >/dev/null
 
-sudo systemctl start jenkins
-sudo systemctl enable jenkins
+run_as_root apt-get update
+run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y jenkins
+run_as_root systemctl enable --now jenkins
 
-sleep 30
-echo "Waiting for 30 seconds before installing the Terraform..."
-wget https://releases.hashicorp.com/terraform/1.6.5/terraform_1.6.5_linux_386.zip
-yes | sudo apt-get install unzip
-unzip 'terraform*.zip'
-sudo mv terraform /usr/local/bin/
+# Download a pinned Terraform release for the host architecture and verify its checksum.
+TERRAFORM_ZIP="terraform_${TERRAFORM_VERSION}_linux_${TERRAFORM_ARCH}.zip"
+BASE_URL="https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}"
+curl -fsSL "${BASE_URL}/${TERRAFORM_ZIP}" -o "${TMP_DIR}/${TERRAFORM_ZIP}"
+curl -fsSL "${BASE_URL}/terraform_${TERRAFORM_VERSION}_SHA256SUMS" -o "${TMP_DIR}/SHA256SUMS"
+(
+  cd "${TMP_DIR}"
+  grep " ${TERRAFORM_ZIP}$" SHA256SUMS | sha256sum --check -
+)
+unzip -q "${TMP_DIR}/${TERRAFORM_ZIP}" -d "${TMP_DIR}"
+run_as_root install -m 0755 "${TMP_DIR}/terraform" /usr/local/bin/terraform
 
+terraform version
+systemctl is-active --quiet jenkins
+echo "Jenkins and Terraform installation completed."
