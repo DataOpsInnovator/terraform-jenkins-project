@@ -23,7 +23,7 @@ module "jenkins" {
   subnet_id                 = tolist(module.networking.dev_proj_1_public_subnets)[0]
   sg_for_jenkins            = [module.security_group.sg_ec2_sg_ssh_http_id, module.security_group.sg_ec2_jenkins_port_8080]
   enable_public_ip_address  = true
-  user_data_install_jenkins = templatefile("./jenkins-runner-script/jenkins-installer.sh", {})
+  user_data_install_jenkins = file("./jenkins-runner-script/jenkins-installer.sh")
   
 }
 
